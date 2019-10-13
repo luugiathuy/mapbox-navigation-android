@@ -119,7 +119,7 @@ public class MockNavigationActivity extends AppCompatActivity implements OnMapRe
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_mock_navigation);
     ButterKnife.bind(this);
-    routeRefresh = new RouteRefresh(Mapbox.getAccessToken());
+    routeRefresh = new RouteRefresh(Mapbox.getAccessToken(), getApplicationContext());
 
     mapView.onCreate(savedInstanceState);
     mapView.getMapAsync(this);
@@ -200,7 +200,7 @@ public class MockNavigationActivity extends AppCompatActivity implements OnMapRe
       locationComponent.setLocationComponentEnabled(false);
       navigationMapRoute = new NavigationMapRoute(navigation, mapView, mapboxMap);
       Snackbar.make(findViewById(R.id.container), "Tap map to place waypoint",
-        BaseTransientBottomBar.LENGTH_LONG).show();
+        Snackbar.LENGTH_LONG).show();
       locationEngine = new ReplayRouteLocationEngine();
       newOrigin();
     });
