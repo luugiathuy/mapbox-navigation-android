@@ -55,7 +55,7 @@ internal constructor(
                 )
                 .language(context)
                 .voiceUnits(context)
-                    .interceptor(SkuInterceptor(context))
+                .interceptor(SkuInterceptor(context))
                 .profile(DirectionsCriteria.PROFILE_DRIVING_TRAFFIC)
                 .continueStraight(true)
     }
