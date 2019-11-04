@@ -4,6 +4,7 @@ import android.content.Context
 import com.mapbox.api.directions.v5.models.DirectionsRoute
 import com.mapbox.api.directionsrefresh.v1.MapboxDirectionsRefresh
 import com.mapbox.navigation.utils.extensions.ifNonNull
+import com.mapbox.services.android.navigation.v5.internal.accounts.SkuInterceptor
 import com.mapbox.services.android.navigation.v5.routeprogress.RouteProgress
 
 /**
@@ -52,7 +53,7 @@ class RouteRefresh(private val accessToken: String, private val context: Context
         }
         builder.legIndex(legIndex)
             .accessToken(accessToken)
-                .interceptor(SkuInterceptor(context))
+            .interceptor(SkuInterceptor(context))
             .build().enqueueCall(RouteRefreshCallback(directionsRoute, legIndex, refreshCallback))
     }
 
