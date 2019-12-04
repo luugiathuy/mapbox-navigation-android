@@ -22,6 +22,14 @@ import com.mapbox.mapboxsdk.location.modes.RenderMode
 import com.mapbox.mapboxsdk.maps.AttributionDialogManager
 import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.Style
+import com.mapbox.navigation.logger.DEBUG
+import com.mapbox.navigation.logger.ERROR
+import com.mapbox.navigation.logger.INFO
+import com.mapbox.navigation.logger.LogEntry
+import com.mapbox.navigation.logger.LoggerObserver
+import com.mapbox.navigation.logger.MapboxLogger
+import com.mapbox.navigation.logger.VERBOSE
+import com.mapbox.navigation.logger.WARN
 import com.mapbox.services.android.navigation.testapp.NavigationSettingsActivity
 import com.mapbox.services.android.navigation.testapp.R
 import com.mapbox.services.android.navigation.testapp.activity.HistoryActivity
@@ -35,12 +43,14 @@ import com.mapbox.services.android.navigation.v5.milestone.Milestone
 import com.mapbox.services.android.navigation.v5.navigation.MapboxNavigation
 import com.mapbox.services.android.navigation.v5.routeprogress.RouteProgress
 import kotlinx.android.synthetic.main.activity_example.*
+import timber.log.Timber
 
 private const val ZERO_PADDING = 0
 private const val BOTTOMSHEET_MULTIPLIER = 4
 private const val CHANGE_SETTING_REQUEST_CODE = 1
 
-class ExampleActivity : HistoryActivity(), ExampleView {
+class ExampleActivity : HistoryActivity(), ExampleView, LoggerObserver {
+
     private var map: NavigationMapboxMap? = null
     private val viewModel by lazy(mode = LazyThreadSafetyMode.NONE) {
         ViewModelProviders.of(this).get(ExampleViewModel::class.java)
@@ -52,6 +62,8 @@ class ExampleActivity : HistoryActivity(), ExampleView {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_example)
+        MapboxLogger.logLevel = DEBUG
+        MapboxLogger.addObserver(this)
         setupWith(savedInstanceState)
         addNavigationForHistory(viewModel.retrieveNavigation())
     }
@@ -91,6 +103,7 @@ class ExampleActivity : HistoryActivity(), ExampleView {
 
     override fun onDestroy() {
         super.onDestroy()
+        MapboxLogger.removeObserver(this)
         mapView.onDestroy()
     }
 
@@ -114,6 +127,7 @@ class ExampleActivity : HistoryActivity(), ExampleView {
     }
 
     override fun onMapReady(mapboxMap: MapboxMap) {
+        MapboxLogger.e("Map is ready")
         mapboxMap.setStyle(Style.Builder().fromUrl(getString(R.string.navigation_guidance_day))) {
             map = NavigationMapboxMap(mapView, mapboxMap)
             map?.setOnRouteSelectionChangeListener(this)
@@ -284,6 +298,19 @@ class ExampleActivity : HistoryActivity(), ExampleView {
 
     override fun updateCameraTrackingMode(trackingMode: Int) {
         map?.updateCameraTrackingMode(trackingMode)
+    }
+
+    override fun log(level: Int, entry: LogEntry) {
+        entry.apply {
+            tag?.let { Timber.tag(tag) }
+            when (level) {
+                VERBOSE -> Timber.v(throwable, message)
+                DEBUG -> Timber.d(throwable, message)
+                INFO -> Timber.i(throwable, message)
+                WARN -> Timber.w(throwable, message)
+                ERROR -> Timber.e(throwable, message)
+            }
+        }
     }
 
     private fun setupWith(savedInstanceState: Bundle?) {
