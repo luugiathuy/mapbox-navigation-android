@@ -63,7 +63,7 @@ class ExampleActivity : HistoryActivity(), ExampleView, LoggerObserver {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_example)
         MapboxLogger.logLevel = DEBUG
-        MapboxLogger.addObserver(this)
+        MapboxLogger.setObserver(this)
         setupWith(savedInstanceState)
         addNavigationForHistory(viewModel.retrieveNavigation())
     }
@@ -103,7 +103,6 @@ class ExampleActivity : HistoryActivity(), ExampleView, LoggerObserver {
 
     override fun onDestroy() {
         super.onDestroy()
-        MapboxLogger.removeObserver(this)
         mapView.onDestroy()
     }
 
