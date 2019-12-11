@@ -3,6 +3,7 @@ package com.mapbox.services.android.navigation.v5.internal.navigation
 import android.location.Location
 import android.os.Handler
 import android.os.Looper
+import com.google.gson.Gson
 import com.mapbox.android.core.location.LocationEngine
 import com.mapbox.android.core.location.LocationEngineCallback
 import com.mapbox.android.core.location.LocationEngineRequest
@@ -27,8 +28,22 @@ internal class FreeDriveLocationUpdater(
 ) {
     private val callback = CurrentLocationEngineCallback(this)
     private var future: ScheduledFuture<*>? = null
+    private var electronicHorizonFuture: ScheduledFuture<*>? = null
     private var rawLocation: Location? = null
     private val handler = Handler(Looper.getMainLooper())
+    private val cachedLocations = mutableListOf<Location>()
+
+    companion object {
+        private const val ELECTRONIC_HORIZON_DELAY = 20_000L
+        private const val ELECTRONIC_HORIZON_INTERVAL = 20_000L
+        private const val LOCATIONS_CACHE_MAX_SIZE = 5
+    }
+
+    enum class ElectronicHorizonExpansion (val value: String) {
+        _1D("1D"),
+        _1_5D("1.5D"),
+        _2D("2D")
+    }
 
     fun configure(
         tilePath: String,
@@ -52,18 +67,30 @@ internal class FreeDriveLocationUpdater(
                 }
             }, 1500, 1000, TimeUnit.MILLISECONDS)
         }
+
+        if (electronicHorizonFuture == null) {
+            electronicHorizonFuture = executorService.scheduleAtFixedRate({
+                val request = buildElectronicHorizonRequest(ElectronicHorizonExpansion._1D)
+                Timber.d("electronicHorizonFuture request = $request")
+                val routerResult = mapboxNavigator.retrieveElectronicHorizon(request)
+                Timber.d("electronicHorizonFuture routerResult success = ${routerResult.success}, json = ${routerResult.json}")
+            }, ELECTRONIC_HORIZON_DELAY, ELECTRONIC_HORIZON_INTERVAL, TimeUnit.MILLISECONDS)
+        }
     }
 
     fun stop() {
         future?.let {
             stopLocationUpdates()
         }
+
+        stopRetrieveElectronicHorizon()
     }
 
     fun kill() {
         future?.let {
             stopLocationUpdates()
         }
+        stopRetrieveElectronicHorizon()
         executorService.shutdown()
     }
 
@@ -111,13 +138,37 @@ internal class FreeDriveLocationUpdater(
         future = null
     }
 
+    private fun stopRetrieveElectronicHorizon() {
+        electronicHorizonFuture?.cancel(false)
+        electronicHorizonFuture = null
+        cachedLocations.clear()
+    }
+
     private fun onLocationChanged(location: Location?) {
         location?.let { currentLocation ->
             rawLocation = currentLocation
+            cacheLocation(currentLocation)
             executorService.execute {
                 mapboxNavigator.updateLocation(currentLocation)
             }
         }
+    }
+
+    private fun cacheLocation(location: Location) {
+        // remove the oldest location to fit the max cache size
+        if (cachedLocations.size == LOCATIONS_CACHE_MAX_SIZE) {
+            cachedLocations.removeAt(0)
+        }
+
+        cachedLocations.add(location)
+    }
+
+    private fun buildElectronicHorizonRequest(expansion: ElectronicHorizonExpansion): String {
+        val positions = cachedLocations.map { Position(it.latitude, it.longitude) }
+        val options = mapOf("expansion" to expansion.value)
+        val request = ElectronicHorizonRequest(positions, options)
+
+        return Gson().toJson(request)
     }
 
     private class CurrentLocationEngineCallback(locationUpdater: FreeDriveLocationUpdater) :
@@ -135,4 +186,13 @@ internal class FreeDriveLocationUpdater(
             Timber.e(exception)
         }
     }
+
+    private data class Position (
+        val lat: Double,
+        val lon: Double)
+
+    private data class ElectronicHorizonRequest (
+        val shape: List<Position>,
+        val eh_options: Map<String, Any>
+    )
 }
